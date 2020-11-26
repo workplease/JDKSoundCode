@@ -23,18 +23,20 @@
  *
  */
 
-package java.util;
+package com.zzz.gather;
+
+import sun.misc.SharedSecrets;
 
 import java.io.IOException;
 import java.io.InvalidObjectException;
 import java.io.Serializable;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import sun.misc.SharedSecrets;
 
 /**
  * Hash table based implementation of the <tt>Map</tt> interface.  This
@@ -46,7 +48,7 @@ import sun.misc.SharedSecrets;
  * will remain constant over time.
  *
  * <p>This implementation provides constant-time performance for the basic
- * operations (<tt>get</tt> and <tt>put</tt>), assuming the hash function
+ * operations (<tt>get</tt> and <tt>put</tt>), assuming the has h function
  * disperses the elements properly among the buckets.  Iteration over
  * collection views requires time proportional to the "capacity" of the
  * <tt>HashMap</tt> instance (the number of buckets) plus its size (the number
@@ -138,6 +140,7 @@ import sun.misc.SharedSecrets;
 public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable {
 
+    //序列化和反序列化时，通过该字段进行版本一致性检验
     private static final long serialVersionUID = 362498820763181265L;
 
     /*
@@ -233,6 +236,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     /**
      * The default initial capacity - MUST be a power of two.
      */
+    //默认HashMap集合初始容量为16（必须是2的倍数）
     static final int DEFAULT_INITIAL_CAPACITY = 1 << 4; // aka 16
 
     /**
@@ -240,11 +244,13 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * by either of the constructors with arguments.
      * MUST be a power of two <= 1<<30.
      */
+    //集合的最大容量，如果通过带参构造指定的最大容量超过此数值，默认还是使用此数组
     static final int MAXIMUM_CAPACITY = 1 << 30;
 
     /**
      * The load factor used when none specified in constructor.
      */
+    //默认的填充因子
     static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
     /**
@@ -255,6 +261,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * tree removal about conversion back to plain bins upon
      * shrinkage.
      */
+    //当桶（bucket）上的节点大于这个值时会转成红黑树（JDK1.8新增）
     static final int TREEIFY_THRESHOLD = 8;
 
     /**
@@ -262,6 +269,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * resize operation. Should be less than TREEIFY_THRESHOLD, and at
      * most 6 to mesh with shrinkage detection under removal.
      */
+    //当桶（bucket）上的节点数小于这个值时会转成链表（JDK1.8新增）
     static final int UNTREEIFY_THRESHOLD = 6;
 
     /**
@@ -270,13 +278,14 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * Should be at least 4 * TREEIFY_THRESHOLD to avoid conflicts
      * between resizing and treeification thresholds.
      */
+    //当集合中的容量大于这个值时，表中的桶才能进行树形化，否则桶内元素太多时会进行扩容（JDK1.8新增）
     static final int MIN_TREEIFY_CAPACITY = 64;
 
     /**
      * Basic hash bin node, used for most entries.  (See below for
      * TreeNode subclass, and in LinkedHashMap for its Entry subclass.)
      */
-    static class Node<K,V> implements Map.Entry<K,V> {
+    static class Node<K,V> implements Entry<K,V> {
         final int hash;
         final K key;
         V value;
@@ -307,7 +316,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             if (o == this)
                 return true;
             if (o instanceof Map.Entry) {
-                Map.Entry<?,?> e = (Map.Entry<?,?>)o;
+                Entry<?,?> e = (Entry<?,?>)o;
                 if (Objects.equals(key, e.getKey()) &&
                     Objects.equals(value, e.getValue()))
                     return true;
@@ -373,6 +382,10 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     }
 
     /**
+     * 返回大于等于initialCapacity的最小的二次幂数值
+     * >>> 操作符表示无符号右移，高位取0
+     * 按位与运算
+     *
      * Returns a power of two size for the given target capacity.
      */
     static final int tableSizeFor(int cap) {
@@ -393,20 +406,26 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * (We also tolerate length zero in some operations to allow
      * bootstrapping mechanics that are currently not needed.)
      */
+    //初始化使用，长度总是2的幂
     transient Node<K,V>[] table;
 
     /**
      * Holds cached entrySet(). Note that AbstractMap fields are used
      * for keySet() and values().
      */
-    transient Set<Map.Entry<K,V>> entrySet;
+    //保存缓存的entrySet()
+    transient Set<Entry<K,V>> entrySet;
 
     /**
      * The number of key-value mappings contained in this map.
      */
+    //此映射中包含的键值映射的数量（集合存储键值对的数量）
     transient int size;
 
     /**
+     * 跟前面ArrayList和LinkedList结合中的字段midCount功能一样，记录集合被修改的次数
+     * 主要用于迭代器的快速失败
+     *
      * The number of times this HashMap has been structurally modified
      * Structural modifications are those that change the number of mappings in
      * the HashMap or otherwise modify its internal structure (e.g.,
@@ -424,6 +443,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     // Additionally, if the table array has not been allocated, this
     // field holds the initial array capacity, or zero signifying
     // DEFAULT_INITIAL_CAPACITY.)
+    //调整下一个值大小（容量*加载因子）capacity*load factor
     int threshold;
 
     /**
@@ -431,6 +451,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      *
      * @serial
      */
+    //散列表的加载因子
     final float loadFactor;
 
     /* ---------------- Public operations -------------- */
@@ -445,11 +466,14 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      *         or the load factor is nonpositive
      */
     public HashMap(int initialCapacity, float loadFactor) {
+        //初始化容量不能小于0，否则抛出异常
         if (initialCapacity < 0)
             throw new IllegalArgumentException("Illegal initial capacity: " +
                                                initialCapacity);
+        //如果初始化容量大于2的30次方，则初始化容量都为2的30次方
         if (initialCapacity > MAXIMUM_CAPACITY)
             initialCapacity = MAXIMUM_CAPACITY;
+        //如果加载因子小于0，或者加载因子是一个非数值，则抛出异常
         if (loadFactor <= 0 || Float.isNaN(loadFactor))
             throw new IllegalArgumentException("Illegal load factor: " +
                                                loadFactor);
@@ -472,6 +496,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      * Constructs an empty <tt>HashMap</tt> with the default initial capacity
      * (16) and the default load factor (0.75).
      */
+    //无参构造函数，初始化加载因子loadFactor = 0.75
     public HashMap() {
         this.loadFactor = DEFAULT_LOAD_FACTOR; // all other fields defaulted
     }
@@ -509,7 +534,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             }
             else if (s > threshold)
                 resize();
-            for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
+            for (Entry<? extends K, ? extends V> e : m.entrySet()) {
                 K key = e.getKey();
                 V value = e.getValue();
                 putVal(hash(key), key, value, false, evict);
@@ -568,13 +593,17 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         Node<K,V>[] tab; Node<K,V> first, e; int n; K k;
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (first = tab[(n - 1) & hash]) != null) {
+            //根据key计算的索引检查第一个索引
             if (first.hash == hash && // always check first node
                 ((k = first.key) == key || (key != null && key.equals(k))))
                 return first;
+            //不是第一个节点
             if ((e = first.next) != null) {
+                //遍历树查找元素
                 if (first instanceof TreeNode)
                     return ((TreeNode<K,V>)first).getTreeNode(hash, key);
                 do {
+                    //遍历链表查找元素
                     if (e.hash == hash &&
                         ((k = e.key) == key || (key != null && key.equals(k))))
                         return e;
@@ -625,25 +654,35 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
                    boolean evict) {
         Node<K,V>[] tab; Node<K,V> p; int n, i;
+        //如果table为null或者长度为0，则进行初始化
+        //size()方法本来是用来扩容，由于初始化没有实际分配空间，这里用该方法进行空间分配
         if ((tab = table) == null || (n = tab.length) == 0)
             n = (tab = resize()).length;
+        //取模运算
         if ((p = tab[i = (n - 1) & hash]) == null)
+            //tab[i]为null，直接将新的key-value插入到计算的索引i位置
             tab[i] = newNode(hash, key, value, null);
+        //tab[i]不为null，表示该位置已经有值了
         else {
             Node<K,V> e; K k;
             if (p.hash == hash &&
                 ((k = p.key) == key || (key != null && key.equals(k))))
+                //节点key已经有值了，直接用新值覆盖
                 e = p;
+            //该链是红黑树
             else if (p instanceof TreeNode)
                 e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+            //该链是链表
             else {
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) {
                         p.next = newNode(hash, key, value, null);
+                        //链表长度大于8，转换成红黑树
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
                             treeifyBin(tab, hash);
                         break;
                     }
+                    //key已经存在直接覆盖value
                     if (e.hash == hash &&
                         ((k = e.key) == key || (key != null && key.equals(k))))
                         break;
@@ -658,7 +697,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                 return oldValue;
             }
         }
+        //用作修改和快速失败校验
         ++modCount;
+        //超过最大容量，进行扩容
         if (++size > threshold)
             resize();
         afterNodeInsertion(evict);
@@ -676,24 +717,35 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      */
     final Node<K,V>[] resize() {
         Node<K,V>[] oldTab = table;
+        //原数组如果为null，则长度赋值0
         int oldCap = (oldTab == null) ? 0 : oldTab.length;
         int oldThr = threshold;
         int newCap, newThr = 0;
+        //如果原数组长度大于0
         if (oldCap > 0) {
+            //数组大小如果已经大于等于最大值
             if (oldCap >= MAXIMUM_CAPACITY) {
+                //修改阈值为int的最大值，这时以后就不会扩容了
                 threshold = Integer.MAX_VALUE;
                 return oldTab;
             }
+            //原数组长度大于等于初始化长度16，并且原数组长度扩大1倍也小于2^30次方
             else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
                      oldCap >= DEFAULT_INITIAL_CAPACITY)
+                //阈值扩大1倍
                 newThr = oldThr << 1; // double threshold
         }
+        //旧阈值大于0，则新容量直接等于旧阈值
         else if (oldThr > 0) // initial capacity was placed in threshold
             newCap = oldThr;
+        //阈值等于0，oldCap也等于0（集合未进行初始化）
         else {               // zero initial threshold signifies using defaults
+            //数组长度初始化为16
             newCap = DEFAULT_INITIAL_CAPACITY;
+            //阈值等于16*0.75=12
             newThr = (int)(DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
         }
+        //计算新的阈值上限
         if (newThr == 0) {
             float ft = (float)newCap * loadFactor;
             newThr = (newCap < MAXIMUM_CAPACITY && ft < (float)MAXIMUM_CAPACITY ?
@@ -704,12 +756,16 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
         table = newTab;
         if (oldTab != null) {
+            //把每个bucket都移动到新的buckets中
             for (int j = 0; j < oldCap; ++j) {
                 Node<K,V> e;
                 if ((e = oldTab[j]) != null) {
+                    //元数据j位置置为null，便于垃圾回收
                     oldTab[j] = null;
+                    //数组没有下一个引用（不是链表）
                     if (e.next == null)
                         newTab[e.hash & (newCap - 1)] = e;
+                    //红黑树
                     else if (e instanceof TreeNode)
                         ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
                     else { // preserve order
@@ -718,6 +774,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                         Node<K,V> next;
                         do {
                             next = e.next;
+                            //原索引
                             if ((e.hash & oldCap) == 0) {
                                 if (loTail == null)
                                     loHead = e;
@@ -725,6 +782,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                                     loTail.next = e;
                                 loTail = e;
                             }
+                            //原索引+oldCap
                             else {
                                 if (hiTail == null)
                                     hiHead = e;
@@ -733,10 +791,12 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                                 hiTail = e;
                             }
                         } while ((e = next) != null);
+                        //原索引放到bucket中
                         if (loTail != null) {
                             loTail.next = null;
                             newTab[j] = loHead;
                         }
+                        //原索引+oldCap放到bucket中
                         if (hiTail != null) {
                             hiTail.next = null;
                             newTab[j + oldCap] = hiHead;
@@ -813,6 +873,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final Node<K,V> removeNode(int hash, Object key, Object value,
                                boolean matchValue, boolean movable) {
         Node<K,V>[] tab; Node<K,V> p; int n, index;
+        //(n - 1) & hash找到桶的位置
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (p = tab[index = (n - 1) & hash]) != null) {
             Node<K,V> node = null, e; K k; V v;
@@ -834,6 +895,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                     } while ((e = e.next) != null);
                 }
             }
+            //删除节点，并进行调节红黑树平衡
             if (node != null && (!matchValue || (v = node.value) == value ||
                                  (value != null && value.equals(v)))) {
                 if (node instanceof TreeNode)
@@ -876,9 +938,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     public boolean containsValue(Object value) {
         Node<K,V>[] tab; V v;
         if ((tab = table) != null && size > 0) {
-            //遍历桶
             for (int i = 0; i < tab.length; ++i) {
-                //遍历桶中的每个节点元素
                 for (Node<K,V> e = tab[i]; e != null; e = e.next) {
                     if ((v = e.value) == value ||
                         (value != null && value.equals(v)))
@@ -1004,38 +1064,38 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      *
      * @return a set view of the mappings contained in this map
      */
-    public Set<Map.Entry<K,V>> entrySet() {
-        Set<Map.Entry<K,V>> es;
+    public Set<Entry<K,V>> entrySet() {
+        Set<Entry<K,V>> es;
         return (es = entrySet) == null ? (entrySet = new EntrySet()) : es;
     }
 
-    final class EntrySet extends AbstractSet<Map.Entry<K,V>> {
+    final class EntrySet extends AbstractSet<Entry<K,V>> {
         public final int size()                 { return size; }
         public final void clear()               { HashMap.this.clear(); }
-        public final Iterator<Map.Entry<K,V>> iterator() {
+        public final Iterator<Entry<K,V>> iterator() {
             return new EntryIterator();
         }
         public final boolean contains(Object o) {
             if (!(o instanceof Map.Entry))
                 return false;
-            Map.Entry<?,?> e = (Map.Entry<?,?>) o;
+            Entry<?,?> e = (Entry<?,?>) o;
             Object key = e.getKey();
             Node<K,V> candidate = getNode(hash(key), key);
             return candidate != null && candidate.equals(e);
         }
         public final boolean remove(Object o) {
             if (o instanceof Map.Entry) {
-                Map.Entry<?,?> e = (Map.Entry<?,?>) o;
+                Entry<?,?> e = (Entry<?,?>) o;
                 Object key = e.getKey();
                 Object value = e.getValue();
                 return removeNode(hash(key), key, value, true, true) != null;
             }
             return false;
         }
-        public final Spliterator<Map.Entry<K,V>> spliterator() {
+        public final Spliterator<Entry<K,V>> spliterator() {
             return new EntrySpliterator<>(HashMap.this, 0, -1, 0, 0);
         }
-        public final void forEach(Consumer<? super Map.Entry<K,V>> action) {
+        public final void forEach(Consumer<? super Entry<K,V>> action) {
             Node<K,V>[] tab;
             if (action == null)
                 throw new NullPointerException();
@@ -1398,7 +1458,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
 
             // Check Map.Entry[].class since it's the nearest public type to
             // what we're actually creating.
-            SharedSecrets.getJavaOISAccess().checkArray(s, Map.Entry[].class, cap);
+            SharedSecrets.getJavaOISAccess().checkArray(s, Entry[].class, cap);
             @SuppressWarnings({"rawtypes","unchecked"})
             Node<K,V>[] tab = (Node<K,V>[])new Node[cap];
             table = tab;
@@ -1474,8 +1534,8 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     }
 
     final class EntryIterator extends HashIterator
-        implements Iterator<Map.Entry<K,V>> {
-        public final Map.Entry<K,V> next() { return nextNode(); }
+        implements Iterator<Entry<K,V>> {
+        public final Entry<K,V> next() { return nextNode(); }
     }
 
     /* ------------------------------------------------------------ */
@@ -1662,7 +1722,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
 
     static final class EntrySpliterator<K,V>
         extends HashMapSpliterator<K,V>
-        implements Spliterator<Map.Entry<K,V>> {
+        implements Spliterator<Entry<K,V>> {
         EntrySpliterator(HashMap<K,V> m, int origin, int fence, int est,
                          int expectedModCount) {
             super(m, origin, fence, est, expectedModCount);
@@ -1675,7 +1735,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
                                           expectedModCount);
         }
 
-        public void forEachRemaining(Consumer<? super Map.Entry<K,V>> action) {
+        public void forEachRemaining(Consumer<? super Entry<K,V>> action) {
             int i, hi, mc;
             if (action == null)
                 throw new NullPointerException();
@@ -1704,7 +1764,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
             }
         }
 
-        public boolean tryAdvance(Consumer<? super Map.Entry<K,V>> action) {
+        public boolean tryAdvance(Consumer<? super Entry<K,V>> action) {
             int hi;
             if (action == null)
                 throw new NullPointerException();
